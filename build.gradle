@@ -1,0 +1,97 @@
+import org.apache.tools.ant.taskdefs.condition.Os;
+
+plugins {
+    id 'java'
+    id 'idea'
+}
+
+rootProject.jar.baseName = 'combatBot'
+
+dependencies {
+    //implementation 'net.sf:robocode:1.9.3.3'
+    implementation fileTree(dir: projectDir.absolutePath + '/robocode-game/libs', include: '*.jar')
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.assertj:assertj-core:3.11.1'
+    testImplementation 'org.mockito:mockito-all:1.9.5'
+}
+
+repositories {
+    maven {
+        url 'http://www.nexus.ford.com/repository/external-proxy-group/'
+    }
+    maven {
+        url 'http://www.nexus.ford.com/repository/software_craftsman_public_release_repository/'
+    }
+}
+
+jar{
+    manifest {
+        attributes 'robots': 'combatBot.*'
+    }
+}
+
+compileJava{
+    sourceCompatibility=1.8
+    targetCompatibility=1.8
+}
+
+task copyToRobocode(type: Copy) {
+    dependsOn compileJava
+    from 'build/classes/java/main/combatBot', 'build/resources/main/combatBot'
+    include '*.class', '*.properties'
+    into projectDir.absolutePath + '/robocode-game/robots/combatBot'
+}
+
+task dumpRobotsToJenkins(type: Copy) {
+    dependsOn compileJava
+    from 'build/libs'
+    include '*.jar'
+    into projectDir.absolutePath + '/../../participant-robots/workspace'
+}
+
+task deleteFromRobocode(type: Delete){
+    delete fileTree('robocode-game/robots/combatBot'){
+        include '**/*.class', '**/*.properties'
+    }
+}
+
+task renameRobot{
+    doLast{
+        try{
+            java.nio.file.Files.walk(java.nio.file.Paths.get(projectDir.absolutePath))
+                    .filter{path->path.toString().endsWith(".java") || path.toString().endsWith(".gradle") || path.toString().endsWith(".properties")}
+                    .filter{path->java.nio.file.Files.isRegularFile(path)}
+                    .forEach{path->
+                println(path)
+                String contents = new java.io.File(path.toString()).getText('UTF-8')
+                contents = contents.replace("combatBot", robotName)
+                new File(path.toString()).write(contents, 'UTF-8')
+            }
+        }
+        catch(java.lang.Exception e){
+            e.printStackTrace()
+        }
+
+        try{
+            java.nio.file.Files.walk(java.nio.file.Paths.get(projectDir.absolutePath+"/src"))
+                    .filter{path->java.nio.file.Files.isDirectory(path)}
+                    .filter{path->path.toString().endsWith("combatBot")}
+                    .forEach{path->
+                println(path)
+                java.io.File fileToUpdate = new java.io.File(path.toString())
+                fileToUpdate.renameTo(path.toString().replace("combatBot", robotName))
+            }
+        }
+        catch(java.lang.Exception e){
+            e.printStackTrace()
+        }
+    }
+}
+
+test{
+    dependsOn copyToRobocode
+}
+
+clean{
+    dependsOn deleteFromRobocode
+}

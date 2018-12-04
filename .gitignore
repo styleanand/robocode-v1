@@ -1,0 +1,11 @@
+.idea/
+.DS_Store
+build/
+.gradle
+out/
+*.iml
+bin/
+.classpath
+.settings
+.project
+robocode-game/
